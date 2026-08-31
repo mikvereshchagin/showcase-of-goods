@@ -139,7 +139,7 @@ document.getElementById('confirmPurchaseBtn').addEventListener('click', async ()
 
     try {
         // Создание заказа
-        const createResponse = await fetch('../backend/api/create_order.php', {
+        const createResponse = await fetch('/backend/api/create_order.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -149,12 +149,19 @@ document.getElementById('confirmPurchaseBtn').addEventListener('click', async ()
             })
         });
 
+        if (!createResponse.ok) {
+            const errorData = await createResponse.json();
+            throw new Error(errorData.error || 'Ошибка создания заказа');
+        }
+
         const orderData = await createResponse.json();
         const orderId = orderData.order_id;
 
+        console.log('Заказ создан:', orderId);
+
         // Эмуляция оплаты (вебхук)
         const webhookData = {
-            event_id: 'evt_' + Date.now(),
+            event_id: 'evt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
             order_id: orderId,
             status: 'paid',
             amount: selectedProduct.price,
@@ -162,59 +169,88 @@ document.getElementById('confirmPurchaseBtn').addEventListener('click', async ()
             created_at: new Date().toISOString()
         };
 
-        const paymentResponse = await fetch('../backend/api/webhook/payment.php', {
+        console.log('Отправка вебхука:', webhookData);
+
+        const paymentResponse = await fetch('/backend/api/webhook/payment.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(webhookData)
         });
+
+        if (!paymentResponse.ok) {
+            const errorData = await paymentResponse.json();
+            throw new Error(errorData.error || 'Ошибка обработки платежа');
+        }
+
+        const paymentData = await paymentResponse.json();
+        console.log('Результат вебхука:', paymentData);
+
+        // Закрываем модальное окно покупки
+        closePurchaseModal();
 
         // Показываем статус заказа
         await checkOrderStatus(orderId);
 
     } catch (error) {
         console.error('Ошибка при покупке:', error);
-        alert('Произошла ошибка при оформлении заказа');
+        alert('Произошла ошибка при оформлении заказа: ' + error.message);
     }
 });
 
 // Проверка статуса заказа
 async function checkOrderStatus(orderId) {
+    if (!orderId || orderId === 'undefined') {
+        console.error('Неверный ID заказа');
+        return;
+    }
+
     const statusModal = document.getElementById('statusModal');
     const statusContent = document.getElementById('statusContent');
     statusModal.classList.add('active');
 
     const checkStatus = async () => {
-        const response = await fetch(`../backend/api/order_status.php?order_id=${orderId}`);
-        const data = await response.json();
+        try {
+            const response = await fetch(`/backend/api/order_status.php?order_id=${orderId}`);
 
-        const statusLabels = {
-            'created': 'Создан',
-            'paid': 'Оплачен',
-            'delivering': 'Выдается',
-            'delivered': 'Доставлен',
-            'out_of_stock': 'Нет в наличии',
-            'delivery_failed': 'Ошибка выдачи'
-        };
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Ошибка получения статуса');
+            }
 
-        let html = `
-            <p><strong>Номер заказа:</strong> ${orderId}</p>
-            <p><strong>Статус:</strong> ${statusLabels[data.status] || data.status}</p>
-        `;
+            const data = await response.json();
 
-        if (data.status === 'delivered' && data.delivery_code) {
-            html += `
-                <div style="margin-top: 20px; padding: 20px; background: #3a3a3a; border-radius: 5px;">
-                    <p><strong>Ваш ключ:</strong></p>
-                    <p style="font-size: 24px; color: #667eea; margin: 10px 0;">${data.delivery_code}</p>
-                </div>
+            const statusLabels = {
+                'created': 'Создан',
+                'paid': 'Оплачен',
+                'delivering': 'Выдается',
+                'delivered': 'Доставлен',
+                'out_of_stock': 'Нет в наличии',
+                'delivery_failed': 'Ошибка выдачи'
+            };
+
+            let html = `
+                <p><strong>Номер заказа:</strong> ${orderId}</p>
+                <p><strong>Статус:</strong> ${statusLabels[data.status] || data.status}</p>
             `;
-        }
 
-        statusContent.innerHTML = html;
+            if (data.status === 'delivered' && data.delivery_code) {
+                html += `
+                    <div style="margin-top: 20px; padding: 20px; background: #3a3a3a; border-radius: 5px;">
+                        <p><strong>Ваш ключ:</strong></p>
+                        <p style="font-size: 24px; color: #667eea; margin: 10px 0;">${data.delivery_code}</p>
+                    </div>
+                `;
+            }
 
-        // Если статус не финальный, проверяем еще раз
-        if (!['delivered', 'out_of_stock', 'delivery_failed'].includes(data.status)) {
-            setTimeout(checkStatus, 2000);
+            statusContent.innerHTML = html;
+
+            // Если статус не финальный, проверяем еще раз
+            if (!['delivered', 'out_of_stock', 'delivery_failed'].includes(data.status)) {
+                setTimeout(checkStatus, 2000);
+            }
+        } catch (error) {
+            console.error('Ошибка проверки статуса:', error);
+            statusContent.innerHTML = `<p>Ошибка: ${error.message}</p>`;
         }
     };
 
