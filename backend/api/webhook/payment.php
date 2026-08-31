@@ -1,4 +1,7 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -10,49 +13,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../database/init.php';
 
-$data = json_decode(file_get_contents('php://input'), true);
+try {
+    $data = json_decode(file_get_contents('php://input'), true);
 
-// Проверка на дубликат вебхука
-$webhookEvents = readData('webhook_events.json');
-foreach ($webhookEvents as $event) {
-    if ($event['event_id'] === $data['event_id']) {
+    if (!isset($data['event_id']) || !isset($data['order_id']) || !isset($data['status'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'event_id, order_id and status are required']);
+        exit;
+    }
+
+    // Проверка на дубликат вебхука
+    $stmt = $db->prepare("SELECT event_id FROM webhook_events WHERE event_id = ?");
+    $stmt->execute([$data['event_id']]);
+
+    if ($stmt->fetch()) {
         echo json_encode(['status' => 'already_processed']);
         exit;
     }
-}
 
-// Сохраняем событие
-$webhookEvents[] = [
-    'event_id' => $data['event_id'],
-    'order_id' => $data['order_id'],
-    'status' => $data['status'],
-    'amount' => $data['amount'] ?? null,
-    'currency' => $data['currency'] ?? 'RUB',
-    'processed_at' => date('Y-m-d H:i:s')
-];
-writeData('webhook_events.json', $webhookEvents);
+    // Сохраняем событие
+    $stmt = $db->prepare("
+        INSERT INTO webhook_events (event_id, order_id, status, amount, currency)
+        VALUES (?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $data['event_id'],
+        $data['order_id'],
+        $data['status'],
+        $data['amount'] ?? null,
+        $data['currency'] ?? 'RUB'
+    ]);
 
-// Обновляем статус заказа
-if ($data['status'] === 'paid') {
-    $orders = readData('orders.json');
-    $orderUpdated = false;
+    // Обновляем статус заказа
+    if ($data['status'] === 'paid') {
+        $stmt = $db->prepare("
+            UPDATE orders 
+            SET status = 'paid', updated_at = datetime('now')
+            WHERE id = ? AND status = 'created'
+        ");
+        $stmt->execute([$data['order_id']]);
 
-    foreach ($orders as &$order) {
-        if ($order['id'] === $data['order_id'] && $order['status'] === 'created') {
-            $order['status'] = 'paid';
-            $order['updated_at'] = date('Y-m-d H:i:s');
-            $orderUpdated = true;
-            break;
+        if ($stmt->rowCount() > 0) {
+            // Запускаем выдачу
+            require_once __DIR__ . '/../../providers/delivery.php';
+            deliverOrder($db, $data['order_id']);
         }
     }
 
-    if ($orderUpdated) {
-        writeData('orders.json', $orders);
+    echo json_encode(['status' => 'ok']);
 
-        // Запускаем выдачу
-        require_once __DIR__ . '/../../providers/delivery.php';
-        deliverOrder($data['order_id']);
-    }
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode([
+        'error' => $e->getMessage()
+    ]);
 }
-
-echo json_encode(['status' => 'ok']);

@@ -1,4 +1,7 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -10,34 +13,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../database/init.php';
 
-$data = json_decode(file_get_contents('php://input'), true);
+try {
+    $data = json_decode(file_get_contents('php://input'), true);
 
-if (!isset($data['sku']) || !isset($data['amount'])) {
-    http_response_code(400);
-    echo json_encode(['error' => 'SKU and amount are required']);
-    exit;
+    if (!isset($data['sku']) || !isset($data['amount'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'SKU and amount are required']);
+        exit;
+    }
+
+    $orderId = 'ord_' . uniqid() . '_' . bin2hex(random_bytes(4));
+
+    $stmt = $db->prepare("
+        INSERT INTO orders (id, sku, status, amount, currency, email)
+        VALUES (?, ?, 'created', ?, 'RUB', ?)
+    ");
+
+    $stmt->execute([
+        $orderId,
+        $data['sku'],
+        (float)$data['amount'],
+        $data['email'] ?? null
+    ]);
+
+    echo json_encode([
+        'order_id' => $orderId,
+        'status' => 'created',
+        'message' => 'Order created successfully'
+    ]);
+
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode([
+        'error' => $e->getMessage()
+    ]);
 }
-
-$orderId = 'ord_' . uniqid() . '_' . bin2hex(random_bytes(4));
-
-// Для файлового хранилища
-$orders = readData('orders.json');
-$orders[] = [
-    'id' => $orderId,
-    'sku' => $data['sku'],
-    'status' => 'created',
-    'amount' => $data['amount'],
-    'currency' => 'RUB',
-    'email' => $data['email'] ?? null,
-    'delivery_code' => null,
-    'delivery_attempts' => 0,
-    'created_at' => date('Y-m-d H:i:s'),
-    'updated_at' => date('Y-m-d H:i:s')
-];
-writeData('orders.json', $orders);
-
-echo json_encode([
-    'order_id' => $orderId,
-    'status' => 'created',
-    'message' => 'Order created successfully'
-]);
