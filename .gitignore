@@ -1,0 +1,26 @@
+# База данных
+*.sqlite
+*.sqlite3
+*.db
+
+# Логи
+*.log
+logs/
+
+# Временные файлы
+*.tmp
+*.temp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Зависимости (если будут)
+node_modules/
+vendor/
