@@ -1,2 +1,235 @@
-// JavaScript для интерактивности
-console.log('GameMarket frontend loaded');
+// Данные товаров
+const products = [
+    { sku: "STEAM-TOPUP-500", name: "Пополнение Steam 500 ₽", type: "topup", price: 500, currency: "RUB", icon: "🎮" },
+    { sku: "STEAM-TOPUP-1000", name: "Пополнение Steam 1000 ₽", type: "topup", price: 1000, currency: "RUB", icon: "🎮" },
+    { sku: "KEY-CS2-PRIME", name: "CS2 Prime Status ключ", type: "key", price: 1290, currency: "RUB", icon: "🔫" },
+    { sku: "KEY-GTA5", name: "GTA V ключ активации", type: "key", price: 1990, currency: "RUB", icon: "🚗" },
+    { sku: "SUB-DISCORD-1M", name: "Discord Nitro 1 месяц", type: "subscription", price: 399, currency: "RUB", icon: "💬" },
+    { sku: "GIFT-ROBLOX-800", name: "Roblox 800 Robux", type: "giftcard", price: 890, currency: "RUB", icon: "🎯" }
+];
+
+// Инициализация карусели
+let currentSlide = 0;
+const totalSlides = 3;
+let autoSlideInterval;
+
+function initCarousel() {
+    updateCarousel();
+    startAutoSlide();
+}
+
+function updateCarousel() {
+    const track = document.querySelector('.banner-carousel__track');
+    track.style.transform = `translateX(-${currentSlide * 100}%)`;
+
+    // Обновляем точки
+    document.querySelectorAll('.banner-carousel__dot').forEach((dot, index) => {
+        dot.classList.toggle('active', index === currentSlide);
+    });
+}
+
+function changeSlide(direction) {
+    currentSlide = (currentSlide + direction + totalSlides) % totalSlides;
+    updateCarousel();
+    restartAutoSlide();
+}
+
+function goToSlide(index) {
+    currentSlide = index;
+    updateCarousel();
+    restartAutoSlide();
+}
+
+function startAutoSlide() {
+    autoSlideInterval = setInterval(() => {
+        changeSlide(1);
+    }, 5000);
+}
+
+function restartAutoSlide() {
+    clearInterval(autoSlideInterval);
+    startAutoSlide();
+}
+
+// Каталог меню
+const catalogBtn = document.getElementById('catalogBtn');
+const catalogMenu = document.getElementById('catalogMenu');
+
+catalogBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    catalogMenu.classList.toggle('active');
+});
+
+document.addEventListener('click', (e) => {
+    if (!catalogMenu.contains(e.target) && !catalogBtn.contains(e.target)) {
+        catalogMenu.classList.remove('active');
+    }
+});
+
+// Переключатель валют
+document.querySelectorAll('.currency-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.currency-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+    });
+});
+
+// Рендер карточек товаров
+function renderProducts() {
+    const grid = document.getElementById('productsGrid');
+
+    products.forEach(product => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.onclick = () => openPurchaseModal(product);
+
+        const typeLabels = {
+            'topup': 'Пополнение',
+            'key': 'Ключ',
+            'subscription': 'Подписка',
+            'giftcard': 'Гифт карта'
+        };
+
+        card.innerHTML = `
+            <div class="product-card__type">${typeLabels[product.type]}</div>
+            <div class="product-card__img">${product.icon}</div>
+            <div class="product-card__body">
+                <h3 class="product-card__name">${product.name}</h3>
+                <p class="product-card__price">${product.price} ₽</p>
+            </div>
+        `;
+
+        grid.appendChild(card);
+    });
+}
+
+// Модальное окно покупки
+let selectedProduct = null;
+
+function openPurchaseModal(product) {
+    selectedProduct = product;
+    const modal = document.getElementById('purchaseModal');
+    modal.classList.add('active');
+
+    document.getElementById('modalProductImg').textContent = product.icon;
+    document.getElementById('modalProductName').textContent = product.name;
+    document.getElementById('modalProductPrice').textContent = `${product.price} ₽`;
+    document.getElementById('orderEmail').value = '';
+}
+
+function closePurchaseModal() {
+    document.getElementById('purchaseModal').classList.remove('active');
+    selectedProduct = null;
+}
+
+// Модальное окно статуса
+function closeStatusModal() {
+    document.getElementById('statusModal').classList.remove('active');
+}
+
+// Покупка товара
+document.getElementById('confirmPurchaseBtn').addEventListener('click', async () => {
+    if (!selectedProduct) return;
+
+    const email = document.getElementById('orderEmail').value;
+    if (!email) {
+        alert('Введите email');
+        return;
+    }
+
+    try {
+        // Создание заказа
+        const createResponse = await fetch('../backend/api/create_order.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sku: selectedProduct.sku,
+                amount: selectedProduct.price,
+                email: email
+            })
+        });
+
+        const orderData = await createResponse.json();
+        const orderId = orderData.order_id;
+
+        // Эмуляция оплаты (вебхук)
+        const webhookData = {
+            event_id: 'evt_' + Date.now(),
+            order_id: orderId,
+            status: 'paid',
+            amount: selectedProduct.price,
+            currency: 'RUB',
+            created_at: new Date().toISOString()
+        };
+
+        const paymentResponse = await fetch('../backend/api/webhook/payment.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookData)
+        });
+
+        // Показываем статус заказа
+        await checkOrderStatus(orderId);
+
+    } catch (error) {
+        console.error('Ошибка при покупке:', error);
+        alert('Произошла ошибка при оформлении заказа');
+    }
+});
+
+// Проверка статуса заказа
+async function checkOrderStatus(orderId) {
+    const statusModal = document.getElementById('statusModal');
+    const statusContent = document.getElementById('statusContent');
+    statusModal.classList.add('active');
+
+    const checkStatus = async () => {
+        const response = await fetch(`../backend/api/order_status.php?order_id=${orderId}`);
+        const data = await response.json();
+
+        const statusLabels = {
+            'created': 'Создан',
+            'paid': 'Оплачен',
+            'delivering': 'Выдается',
+            'delivered': 'Доставлен',
+            'out_of_stock': 'Нет в наличии',
+            'delivery_failed': 'Ошибка выдачи'
+        };
+
+        let html = `
+            <p><strong>Номер заказа:</strong> ${orderId}</p>
+            <p><strong>Статус:</strong> ${statusLabels[data.status] || data.status}</p>
+        `;
+
+        if (data.status === 'delivered' && data.delivery_code) {
+            html += `
+                <div style="margin-top: 20px; padding: 20px; background: #3a3a3a; border-radius: 5px;">
+                    <p><strong>Ваш ключ:</strong></p>
+                    <p style="font-size: 24px; color: #667eea; margin: 10px 0;">${data.delivery_code}</p>
+                </div>
+            `;
+        }
+
+        statusContent.innerHTML = html;
+
+        // Если статус не финальный, проверяем еще раз
+        if (!['delivered', 'out_of_stock', 'delivery_failed'].includes(data.status)) {
+            setTimeout(checkStatus, 2000);
+        }
+    };
+
+    await checkStatus();
+}
+
+// Инициализация
+document.addEventListener('DOMContentLoaded', () => {
+    initCarousel();
+    renderProducts();
+});
+
+// Закрытие модальных окон при клике вне
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.classList.remove('active');
+    }
+};

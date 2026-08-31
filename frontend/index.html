@@ -7,13 +7,214 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<!-- Здесь будет верстка по макету -->
-<header>
-    <!-- Шапка -->
+<!-- Шапка -->
+<header class="header">
+    <div class="header__container">
+        <div class="header__logo">
+            <img src="assets/logo.png" alt="GameMarket" class="header__logo-img">
+            <span class="header__logo-text">GameMarket</span>
+        </div>
+
+        <button class="header__catalog-btn" id="catalogBtn">
+            <span class="header__catalog-icon">☰</span>
+            Каталог
+        </button>
+
+        <div class="header__search">
+            <input type="text" placeholder="Поиск игр и товаров" class="header__search-input">
+            <button class="header__search-btn">🔍</button>
+        </div>
+
+        <nav class="header__nav">
+            <a href="#" class="header__nav-link">Поддержка</a>
+            <a href="#" class="header__nav-link">Продавцам</a>
+            <a href="#" class="header__nav-link">Войти</a>
+            <button class="header__cart-btn">🛒</button>
+        </nav>
+    </div>
+
+    <!-- Выпадающее меню каталога -->
+    <div class="catalog-menu" id="catalogMenu">
+        <div class="catalog-menu__container">
+            <div class="catalog-menu__column">
+                <h3 class="catalog-menu__title">Пополнения</h3>
+                <a href="#" class="catalog-menu__item">Steam</a>
+                <a href="#" class="catalog-menu__item">PlayStation Store</a>
+                <a href="#" class="catalog-menu__item">Xbox</a>
+                <a href="#" class="catalog-menu__item">App Store</a>
+                <a href="#" class="catalog-menu__item">Google Play</a>
+            </div>
+            <div class="catalog-menu__column">
+                <h3 class="catalog-menu__title">Ключи игр</h3>
+                <a href="#" class="catalog-menu__item">CS2</a>
+                <a href="#" class="catalog-menu__item">GTA V</a>
+                <a href="#" class="catalog-menu__item">Escape from Tarkov</a>
+                <a href="#" class="catalog-menu__item">Cyberpunk 2077</a>
+            </div>
+            <div class="catalog-menu__column">
+                <h3 class="catalog-menu__title">Подписки</h3>
+                <a href="#" class="catalog-menu__item">Discord Nitro</a>
+                <a href="#" class="catalog-menu__item">YouTube Premium</a>
+                <a href="#" class="catalog-menu__item">Spotify</a>
+                <a href="#" class="catalog-menu__item">Xbox Game Pass</a>
+            </div>
+            <div class="catalog-menu__column">
+                <h3 class="catalog-menu__title">Гифт карты</h3>
+                <a href="#" class="catalog-menu__item">PlayStation Store</a>
+                <a href="#" class="catalog-menu__item">Xbox</a>
+                <a href="#" class="catalog-menu__item">Roblox</a>
+                <a href="#" class="catalog-menu__item">Steam Wallet</a>
+            </div>
+        </div>
+    </div>
 </header>
-<main>
-    <!-- Баннер, каталог, карточки -->
+
+<main class="main">
+    <!-- Баннер-карусель -->
+    <section class="banner-carousel" id="bannerCarousel">
+        <div class="banner-carousel__track">
+            <div class="banner-carousel__slide" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="banner__content">
+                    <h1 class="banner__title">Пополнение Steam</h1>
+                    <p class="banner__subtitle">Мгновенная доставка ключей</p>
+                    <button class="banner__btn">Купить сейчас</button>
+                </div>
+            </div>
+            <div class="banner-carousel__slide" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="banner__content">
+                    <h1 class="banner__title">Скидки на игры</h1>
+                    <p class="banner__subtitle">До -50% на популярные тайтлы</p>
+                    <button class="banner__btn">Смотреть акции</button>
+                </div>
+            </div>
+            <div class="banner-carousel__slide" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="banner__content">
+                    <h1 class="banner__title">Подписки со скидкой</h1>
+                    <p class="banner__subtitle">Discord Nitro, YouTube Premium</p>
+                    <button class="banner__btn">Выбрать подписку</button>
+                </div>
+            </div>
+        </div>
+
+        <button class="banner-carousel__arrow banner-carousel__arrow--prev" onclick="changeSlide(-1)">❮</button>
+        <button class="banner-carousel__arrow banner-carousel__arrow--next" onclick="changeSlide(1)">❯</button>
+
+        <div class="banner-carousel__dots">
+            <span class="banner-carousel__dot active" onclick="goToSlide(0)"></span>
+            <span class="banner-carousel__dot" onclick="goToSlide(1)"></span>
+            <span class="banner-carousel__dot" onclick="goToSlide(2)"></span>
+        </div>
+    </section>
+
+    <!-- Иконки сервисов -->
+    <section class="services">
+        <div class="services__container">
+            <div class="service-icon" data-service="steam">
+                <div class="service-icon__img">🎮</div>
+                <span>Steam</span>
+            </div>
+            <div class="service-icon" data-service="telegram">
+                <div class="service-icon__img">✈️</div>
+                <span>Telegram</span>
+            </div>
+            <div class="service-icon" data-service="roblox">
+                <div class="service-icon__img">🎯</div>
+                <span>Roblox</span>
+            </div>
+            <div class="service-icon" data-service="discord">
+                <div class="service-icon__img">💬</div>
+                <span>Discord</span>
+            </div>
+            <div class="service-icon" data-service="playstation">
+                <div class="service-icon__img">🎮</div>
+                <span>PS Store</span>
+            </div>
+            <div class="service-icon" data-service="xbox">
+                <div class="service-icon__img">🕹️</div>
+                <span>Xbox</span>
+            </div>
+            <div class="service-icon" data-service="youtube">
+                <div class="service-icon__img">▶️</div>
+                <span>YouTube</span>
+            </div>
+            <div class="service-icon" data-service="spotify">
+                <div class="service-icon__img">🎵</div>
+                <span>Spotify</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Блок пополнения Steam -->
+    <section class="steam-topup">
+        <div class="steam-topup__container">
+            <div class="steam-topup__header">
+                <h2 class="steam-topup__title">Пополнение Steam</h2>
+                <div class="currency-switcher" id="currencySwitcher">
+                    <button class="currency-btn" data-currency="USD">$</button>
+                    <button class="currency-btn" data-currency="KZT">₸</button>
+                    <button class="currency-btn active" data-currency="RUB">₽</button>
+                </div>
+            </div>
+
+            <div class="steam-topup__form">
+                <label class="steam-topup__label">Steam Login</label>
+                <input type="text" class="steam-topup__input" placeholder="Введите логин Steam">
+                <div class="steam-topup__amounts">
+                    <button class="amount-btn" data-amount="500">500 ₽</button>
+                    <button class="amount-btn" data-amount="1000">1000 ₽</button>
+                    <button class="amount-btn" data-amount="1500">1500 ₽</button>
+                    <button class="amount-btn" data-amount="2500">2500 ₽</button>
+                    <button class="amount-btn" data-amount="5000">5000 ₽</button>
+                </div>
+                <button class="steam-topup__buy-btn">Пополнить</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Карточки товаров -->
+    <section class="products">
+        <div class="products__container">
+            <h2 class="products__title">Популярные товары</h2>
+            <div class="products__grid" id="productsGrid">
+                <!-- Карточки будут добавлены через JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Модальное окно покупки -->
+    <div class="modal" id="purchaseModal">
+        <div class="modal__content">
+            <span class="modal__close" onclick="closePurchaseModal()">&times;</span>
+            <h2 class="modal__title">Покупка товара</h2>
+            <div class="modal__body">
+                <div class="modal__product-info">
+                    <div class="modal__product-img" id="modalProductImg">🎮</div>
+                    <div>
+                        <h3 class="modal__product-name" id="modalProductName"></h3>
+                        <p class="modal__product-price" id="modalProductPrice"></p>
+                    </div>
+                </div>
+                <div class="modal__form">
+                    <label class="modal__label">Email для получения ключа</label>
+                    <input type="email" class="modal__input" id="orderEmail" placeholder="your@email.com">
+                    <button class="modal__buy-btn" id="confirmPurchaseBtn">Оплатить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно статуса заказа -->
+    <div class="modal" id="statusModal">
+        <div class="modal__content">
+            <span class="modal__close" onclick="closeStatusModal()">&times;</span>
+            <h2 class="modal__title">Статус заказа</h2>
+            <div class="modal__body" id="statusContent">
+                <!-- Статус будет добавлен через JavaScript -->
+            </div>
+        </div>
+    </div>
 </main>
+
 <script src="js/main.js"></script>
 </body>
 </html>
