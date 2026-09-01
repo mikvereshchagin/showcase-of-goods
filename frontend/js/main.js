@@ -10,7 +10,7 @@ const products = [
 
 // Инициализация карусели
 let currentSlide = 0;
-const totalSlides = 3;
+const totalSlides = 5;
 let autoSlideInterval;
 
 function initCarousel() {
