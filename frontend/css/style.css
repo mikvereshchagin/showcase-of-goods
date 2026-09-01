@@ -216,6 +216,16 @@ body {
     transform: scale(1.05);
 }
 
+.banner-carousel__arrows-wrapper {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 88px;
+    height: 48px;
+    background: #ffffff;
+    border-bottom-left-radius: 24px;
+}
+
 .banner-carousel__arrows {
     position: absolute;
     top: 0;
@@ -239,18 +249,17 @@ body {
 
 .banner-carousel__dots {
     position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 16px;
+    right: 16px;
     display: flex;
-    gap: 10px;
+    gap: 4px;
 }
 
 .banner-carousel__dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.5);
+    width: 20px;
+    height: 4px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.45);
     cursor: pointer;
 }
 
@@ -276,21 +285,16 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 20px;
     border-radius: 10px;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .service-icon:hover {
-    background-color: #2a2a2a;
     transform: translateY(-5px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
 .service-icon__img {
-    font-size: 40px;
     transition: transform 0.3s;
 }
 
@@ -299,7 +303,17 @@ body {
 }
 
 .service-icon span {
-    font-size: 14px;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 24px;
+    max-width: 94px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;;
+}
+
+.mt14 {
+    margin-top: 14px;
 }
 
 /* Блок пополнения Steam */
@@ -307,97 +321,141 @@ body {
     max-width: 1200px;
     margin: 30px auto;
     padding: 20px;
-    background-color: #2a2a2a;
     border-radius: 10px;
-}
-
-.steam-topup__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.steam-topup__title {
-    font-size: 24px;
 }
 
 .currency-switcher {
     display: flex;
-    gap: 5px;
-    background-color: #3a3a3a;
-    padding: 5px;
-    border-radius: 5px;
+    gap: 6px;
 }
 
 .currency-btn {
-    padding: 8px 15px;
-    background: none;
+    width: 36px;
+    height: 36px;
+    background: #E8EAED;
     border: none;
-    color: #ccc;
+    color: #8A94A6;
     cursor: pointer;
-    border-radius: 3px;
-    transition: all 0.3s;
+    border-radius: 8px;
+    transition: color 0.2s, background-color 0.2s;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 700;
 }
 
 .currency-btn.active {
-    background-color: #4a4a4a;
-    color: #fff;
+    background-color: #000000;
+    color: #ffffff;
 }
 
 .steam-topup__form {
     display: flex;
-    gap: 15px;
+    gap: 12px;
     align-items: center;
-    flex-wrap: wrap;
+}
+
+.steam-topup__title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .steam-topup__label {
-    font-size: 14px;
-    color: #ccc;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 27px;
+    letter-spacing: -1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: max-content;
+}
+
+.steam-topup__label .tag {
+    width: 33px;
+    height: 20px;
+    font-size: 11px;
+    line-height: 11px;
+    background: #6EB83F;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50px;
+}
+
+.steam-topup__promo {
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 18px;
+    padding: 4px 12px;
+    background: #e9f3fe;
+    border-radius: 8px;
+    width: max-content;
+    display: flex;
+    align-items: center;
+    gap: 2px;
 }
 
 .steam-topup__input {
-    flex: 1;
-    padding: 10px;
-    background-color: #3a3a3a;
-    border: 1px solid #4a4a4a;
-    border-radius: 5px;
-    color: #fff;
-}
-
-.steam-topup__amounts {
     display: flex;
-    gap: 10px;
+    align-items: center;
+    height: 64px;
+    gap: 12px;
+    position: relative;
+    background-color: #f4f5f7;
+    border-radius: 12px;
+    color: #8a94a6;
+    border: none;
+    outline: none;
+    font-size: 17px;
+    font-weight: 700;
+    padding: 0 20px;
 }
 
-.amount-btn {
-    padding: 10px 15px;
-    background-color: #3a3a3a;
-    border: 1px solid #4a4a4a;
-    border-radius: 5px;
-    color: #fff;
-    cursor: pointer;
-    transition: all 0.3s;
+.steam-topup__content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
-.amount-btn:hover {
-    background-color: #4a4a4a;
+.steam-topup__input-summ .label {
+    color: #8A94A6;
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.steam-topup__input-summ input {
+    color: #363636;
+    width: 120px;
+}
+
+.steam-topup__input-summ input::placeholder {
+    color: #363636;
+}
+
+input {
+    background-color: #f4f5f7;
+    border-radius: 12px;
+    color: #8a94a6;
+    border: none;
+    outline: none;
+    font-size: 17px;
+    font-weight: 700;
 }
 
 .steam-topup__buy-btn {
-    padding: 10px 30px;
-    background-color: #667eea;
-    border: none;
-    border-radius: 5px;
-    color: #fff;
     font-size: 16px;
+    line-height: 27px;
+    font-weight: 700;
+    background-color: #000000;
+    border: none;
+    border-radius: 12px;
+    color: #ffffff;
     cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.steam-topup__buy-btn:hover {
-    background-color: #5a67d8;
+    width: 200px;
+    height: 64px;
 }
 
 /* Карточки товаров */
