@@ -1,11 +1,10 @@
 // Данные товаров
 const products = [
-    { sku: "STEAM-TOPUP-500", name: "Пополнение Steam 500 ₽", type: "topup", price: 500, currency: "RUB", icon: "🎮" },
-    { sku: "STEAM-TOPUP-1000", name: "Пополнение Steam 1000 ₽", type: "topup", price: 1000, currency: "RUB", icon: "🎮" },
-    { sku: "KEY-CS2-PRIME", name: "CS2 Prime Status ключ", type: "key", price: 1290, currency: "RUB", icon: "🔫" },
-    { sku: "KEY-GTA5", name: "GTA V ключ активации", type: "key", price: 1990, currency: "RUB", icon: "🚗" },
-    { sku: "SUB-DISCORD-1M", name: "Discord Nitro 1 месяц", type: "subscription", price: 399, currency: "RUB", icon: "💬" },
-    { sku: "GIFT-ROBLOX-800", name: "Roblox 800 Robux", type: "giftcard", price: 890, currency: "RUB", icon: "🎯" }
+    { sku: "KEY-CS2-PRIME", name: "CS2 Prime Status ключ", price: 1290, oldPrice: 2000, currency: "RUB"},
+    { sku: "KEY-GTA5", name: "GTA V ключ активации", price: 1990, oldPrice: 4000, currency: "RUB"},
+    { sku: "SUB-DISCORD-1M", name: "Discord Nitro 1 месяц", price: 399, oldPrice: 700, currency: "RUB"},
+    { sku: "KEY-GTA5", name: "GTA V ключ активации", price: 1990, oldPrice: 4000, currency: "RUB"},
+    { sku: "SUB-DISCORD-1M", name: "Discord Nitro 1 месяц", price: 399, oldPrice: 700, currency: "RUB"},
 ];
 
 // Инициализация карусели
@@ -83,19 +82,15 @@ function renderProducts() {
         card.className = 'product-card';
         card.onclick = () => openPurchaseModal(product);
 
-        const typeLabels = {
-            'topup': 'Пополнение',
-            'key': 'Ключ',
-            'subscription': 'Подписка',
-            'giftcard': 'Гифт карта'
-        };
-
         card.innerHTML = `
-            <div class="product-card__type">${typeLabels[product.type]}</div>
-            <div class="product-card__img">${product.icon}</div>
-            <div class="product-card__body">
-                <h3 class="product-card__name">${product.name}</h3>
-                <p class="product-card__price">${product.price} ₽</p>
+            <div class="product-card__img"></div>
+            <div class="product-card__content">
+                <div class="product-card__name">${product.name}</div>
+                <div class="product-card__prices">
+                    <div class="product-card__price">${product.price} ₽</div>
+                    <div class="product-card__old-price">${product.oldPrice} ₽</div>
+                </div>
+                <div class="product-card__button">Купить</div>
             </div>
         `;
 
@@ -235,9 +230,9 @@ async function checkOrderStatus(orderId) {
 
             if (data.status === 'delivered' && data.delivery_code) {
                 html += `
-                    <div style="margin-top: 20px; padding: 20px; background: #3a3a3a; border-radius: 5px;">
+                    <div class="key-content">
                         <p><strong>Ваш ключ:</strong></p>
-                        <p style="font-size: 24px; color: #667eea; margin: 10px 0;">${data.delivery_code}</p>
+                        <p class="key">${data.delivery_code}</p>
                     </div>
                 `;
             }
