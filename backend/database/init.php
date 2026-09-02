@@ -50,27 +50,6 @@ try {
             FOREIGN KEY (used_by_order_id) REFERENCES orders(id)
         );
 
-        CREATE TABLE IF NOT EXISTS promocodes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT NOT NULL UNIQUE,
-            type TEXT NOT NULL,
-            value REAL NOT NULL,
-            currency TEXT DEFAULT 'RUB',
-            max_uses INTEGER NOT NULL,
-            current_uses INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now'))
-        );
-
-        CREATE TABLE IF NOT EXISTS promo_usage (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            promo_id INTEGER NOT NULL,
-            order_id TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            FOREIGN KEY (promo_id) REFERENCES promocodes(id),
-            FOREIGN KEY (order_id) REFERENCES orders(id),
-            UNIQUE(promo_id, order_id)
-        );
-
         CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
         CREATE INDEX IF NOT EXISTS idx_key_pool_sku ON key_pool(sku);
         CREATE INDEX IF NOT EXISTS idx_key_pool_is_used ON key_pool(is_used);

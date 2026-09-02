@@ -32,37 +32,12 @@ try {
     }
     echo "Добавлено ключей: $insertedKeys\n";
 
-    // Заполнение промокодов
-    echo "\nЗаполняем промокоды...\n";
-    $promos = [
-        ['WELCOME10', 'percent', 10, 'RUB', 100],
-        ['GG500', 'amount', 500, 'RUB', 20],
-        ['LIMIT3', 'percent', 25, 'RUB', 3],
-        ['ONCEONLY', 'percent', 50, 'RUB', 1]
-    ];
-
-    $insertedPromos = 0;
-    $stmt = $db->prepare("
-        INSERT OR IGNORE INTO promocodes (code, type, value, currency, max_uses) 
-        VALUES (?, ?, ?, ?, ?)
-    ");
-
-    foreach ($promos as $promo) {
-        $stmt->execute($promo);
-        if ($stmt->rowCount() > 0) {
-            $insertedPromos++;
-        }
-    }
-    echo "Добавлено промокодов: $insertedPromos\n";
-
     // Проверка
     echo "\n=== Проверка базы данных ===\n";
     $keyCount = $db->query("SELECT COUNT(*) FROM key_pool")->fetchColumn();
-    $promoCount = $db->query("SELECT COUNT(*) FROM promocodes")->fetchColumn();
     $orderCount = $db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
 
-    echo "Всего ключей в пуле: $keyCount\n";
-    echo "Всего промокодов: $promoCount\n";
+    echo "Всего ключей в пуле: $keyCount\n";;
     echo "Всего заказов: $orderCount\n";
 
     echo "\nБаза данных успешно заполнена!\n";
