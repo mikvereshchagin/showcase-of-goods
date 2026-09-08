@@ -2,6 +2,38 @@
 require_once __DIR__ . '/init.php';
 
 try {
+    // Данные товаров из ТЗ
+    $products = [
+        ['STEAM-TOPUP-500', 'Пополнение Steam 500 ₽', 'topup', 500, 1000, 'RUB', 10],
+        ['STEAM-TOPUP-1000', 'Пополнение Steam 1000 ₽', 'topup', 1000, 2000, 'RUB', 10],
+        ['STEAM-TOPUP-2500', 'Пополнение Steam 2500 ₽', 'topup', 2500, 3000, 'RUB', 10],
+        ['KEY-CS2-PRIME', 'CS2 Prime Status ключ', 'key', 1290, 1500, 'RUB', 5],
+        ['KEY-GTA5', 'GTA V ключ активации', 'key', 1990, 2500, 'RUB', 5],
+        ['KEY-EFT', 'Escape from Tarkov ключ', 'key', 3490, 5000, 'RUB', 3],
+        ['SUB-DISCORD-1M', 'Discord Nitro 1 месяц', 'subscription', 399, 700, 'RUB', 20],
+        ['SUB-YT-3M', 'YouTube Premium 3 месяца', 'subscription', 1490, 2000, 'RUB', 15],
+        ['SUB-SPOTIFY-1M', 'Spotify Premium 1 месяц', 'subscription', 299, 500, 'RUB', 25],
+        ['GIFT-PSN-1000', 'PlayStation Store карта 1000 ₽', 'giftcard', 1000, 1300, 'RUB', 8],
+        ['GIFT-XBOX-1500', 'Xbox Gift Card 1500 ₽', 'giftcard', 1500, 2000, 'RUB', 8],
+        ['GIFT-ROBLOX-800', 'Roblox 800 Robux', 'giftcard', 890, 1000, 'RUB', 12]
+    ];
+
+    echo "Заполняем товары...\n";
+    $insertedProducts = 0;
+
+    $stmt = $db->prepare("
+        INSERT OR IGNORE INTO products (sku, name, type, price, old_price, currency, stock)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ");
+
+    foreach ($products as $product) {
+        $stmt->execute($product);
+        if ($stmt->rowCount() > 0) {
+            $insertedProducts++;
+        }
+    }
+    echo "Добавлено товаров: $insertedProducts\n";
+
     // Полный список ключей из ТЗ
     $keys = [
         "LFXC-TNCS-BPCD", "P3EI-W8UO-9B4K", "FEL3-GUXN-TCCH", "YPLV-QK2Z-IUS5",
@@ -19,7 +51,7 @@ try {
         "W67T-ZB0Q-1XKB", "7EQM-K09J-XKUO"
     ];
 
-    echo "Заполняем пул ключей...\n";
+    echo "\nЗаполняем пул ключей...\n";
     $insertedKeys = 0;
 
     $stmt = $db->prepare("INSERT OR IGNORE INTO key_pool (sku, key_code) VALUES (?, ?)");
@@ -34,11 +66,11 @@ try {
 
     // Проверка
     echo "\n=== Проверка базы данных ===\n";
+    $productCount = $db->query("SELECT COUNT(*) FROM products")->fetchColumn();
     $keyCount = $db->query("SELECT COUNT(*) FROM key_pool")->fetchColumn();
-    $orderCount = $db->query("SELECT COUNT(*) FROM orders")->fetchColumn();
 
-    echo "Всего ключей в пуле: $keyCount\n";;
-    echo "Всего заказов: $orderCount\n";
+    echo "Всего товаров: $productCount\n";
+    echo "Всего ключей в пуле: $keyCount\n";
 
     echo "\nБаза данных успешно заполнена!\n";
 
