@@ -357,11 +357,24 @@
                         <p class="modal__product-price" id="modalProductPrice"></p>
                     </div>
                 </div>
-                <div class="modal__form">
+                <div class="modal__reservation" id="reservationBlock" style="display: none;">
+                    <div class="reservation-info">
+                        <p>Товар будет забронирован на 5 минут</p>
+                        <div class="reservation-timer" id="reservationTimer" style="display: none;">
+                            <span>Время брони: </span>
+                            <span class="timer-display" id="timerDisplay">5:00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email поле (скрыто до бронирования) -->
+                <div class="modal__form" id="emailField" style="display: none;">
                     <label class="modal__label">Email для получения ключа</label>
                     <input type="email" class="modal__input" id="orderEmail" placeholder="your@email.com">
-                    <button class="modal__buy-btn" id="confirmPurchaseBtn">Оплатить</button>
                 </div>
+
+                <!-- Кнопка ВСЕГДА видна -->
+                <button class="modal__buy-btn" id="confirmPurchaseBtn">Забронировать</button>
             </div>
         </div>
     </div>

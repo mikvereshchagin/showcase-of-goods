@@ -23,24 +23,89 @@ try {
     }
 
     $orderId = 'ord_' . uniqid() . '_' . bin2hex(random_bytes(4));
+    $reservationId = $data['reservation_id'] ?? null;
 
-    $stmt = $db->prepare("
-        INSERT INTO orders (id, sku, status, amount, currency, email)
-        VALUES (?, ?, 'created', ?, 'RUB', ?)
-    ");
+    $db->beginTransaction();
 
-    $stmt->execute([
-        $orderId,
-        $data['sku'],
-        (float)$data['amount'],
-        $data['email'] ?? null
-    ]);
+    try {
+        // Если есть бронь, проверяем её
+        if ($reservationId) {
+            $stmt = $db->prepare("
+                SELECT sku, status, expires_at 
+                FROM reservations 
+                WHERE id = ?
+            ");
+            $stmt->execute([$reservationId]);
+            $reservation = $stmt->fetch();
 
-    echo json_encode([
-        'order_id' => $orderId,
-        'status' => 'created',
-        'message' => 'Order created successfully'
-    ]);
+            if (!$reservation || $reservation['status'] !== 'active') {
+                $db->rollBack();
+                http_response_code(409);
+                echo json_encode(['error' => 'Бронь недействительна или истекла']);
+                exit;
+            }
+
+            if (strtotime($reservation['expires_at']) < time()) {
+                // Бронь истекла, снимаем её
+                $stmt = $db->prepare("
+                    UPDATE reservations 
+                    SET status = 'expired', released_at = datetime('now')
+                    WHERE id = ?
+                ");
+                $stmt->execute([$reservationId]);
+
+                $db->rollBack();
+                http_response_code(409);
+                echo json_encode(['error' => 'Бронь истекла']);
+                exit;
+            }
+
+            // Проверяем, что бронь для этого товара
+            if ($reservation['sku'] !== $data['sku']) {
+                $db->rollBack();
+                http_response_code(400);
+                echo json_encode(['error' => 'Бронь не соответствует товару']);
+                exit;
+            }
+        }
+
+        // Создаем заказ
+        $stmt = $db->prepare("
+            INSERT INTO orders (id, sku, status, amount, currency, email, reservation_id)
+            VALUES (?, ?, 'created', ?, 'RUB', ?, ?)
+        ");
+
+        $stmt->execute([
+            $orderId,
+            $data['sku'],
+            (float)$data['amount'],
+            $data['email'] ?? null,
+            $reservationId
+        ]);
+
+        // Если есть бронь, привязываем её к заказу
+        if ($reservationId) {
+            $stmt = $db->prepare("
+                UPDATE reservations 
+                SET order_id = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$orderId, $reservationId]);
+        }
+
+        $db->commit();
+
+        echo json_encode([
+            'order_id' => $orderId,
+            'status' => 'created',
+            'reservation_id' => $reservationId,
+            'message' => 'Order created successfully'
+        ]);
+
+    } catch (Exception $e) {
+        $db->rollBack();
+        throw $e;
+    }
 
 } catch (PDOException $e) {
     http_response_code(500);

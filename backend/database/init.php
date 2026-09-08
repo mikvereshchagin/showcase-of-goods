@@ -16,6 +16,19 @@ try {
 
     // Создание таблиц
     $db->exec("
+        CREATE TABLE IF NOT EXISTS products (
+            sku TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            price REAL NOT NULL,
+            old_price REAL NOT NULL,
+            currency TEXT NOT NULL DEFAULT 'RUB',
+            stock INTEGER NOT NULL DEFAULT 0,
+            image TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
         CREATE TABLE IF NOT EXISTS orders (
             id TEXT PRIMARY KEY,
             sku TEXT NOT NULL,
@@ -25,8 +38,22 @@ try {
             email TEXT,
             delivery_code TEXT,
             delivery_attempts INTEGER DEFAULT 0,
+            reservation_id TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (sku) REFERENCES products(sku)
+        );
+
+        CREATE TABLE IF NOT EXISTS reservations (
+            id TEXT PRIMARY KEY,
+            sku TEXT NOT NULL,
+            order_id TEXT,
+            status TEXT NOT NULL DEFAULT 'active',
+            expires_at TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            released_at TEXT,
+            FOREIGN KEY (sku) REFERENCES products(sku),
+            FOREIGN KEY (order_id) REFERENCES orders(id)
         );
 
         CREATE TABLE IF NOT EXISTS webhook_events (
@@ -47,13 +74,19 @@ try {
             used_by_order_id TEXT,
             used_at TEXT,
             created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (sku) REFERENCES products(sku),
             FOREIGN KEY (used_by_order_id) REFERENCES orders(id)
         );
 
         CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+        CREATE INDEX IF NOT EXISTS idx_orders_sku ON orders(sku);
         CREATE INDEX IF NOT EXISTS idx_key_pool_sku ON key_pool(sku);
         CREATE INDEX IF NOT EXISTS idx_key_pool_is_used ON key_pool(is_used);
         CREATE INDEX IF NOT EXISTS idx_webhook_events_order ON webhook_events(order_id);
+        CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
+        CREATE INDEX IF NOT EXISTS idx_reservations_sku ON reservations(sku);
+        CREATE INDEX IF NOT EXISTS idx_reservations_expires ON reservations(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock);
     ");
 
 } catch (PDOException $e) {
