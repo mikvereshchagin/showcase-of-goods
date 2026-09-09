@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../database/init.php';
+require_once __DIR__ . '/../providers/reservation_helper.php';
 
 try {
     $reservationId = $_GET['reservation_id'] ?? '';
@@ -49,13 +50,9 @@ try {
     $isExpired = strtotime($reservation['expires_at']) < time();
     $isActive = $reservation['status'] === 'active' && !$isExpired;
 
+    // Если бронь просрочена, но ещё числится active — освобождаем и возвращаем stock
     if ($isExpired && $reservation['status'] === 'active') {
-        $stmt = $db->prepare("
-            UPDATE reservations 
-            SET status = 'expired', released_at = datetime('now')
-            WHERE id = ? AND status = 'active'
-        ");
-        $stmt->execute([$reservationId]);
+        releaseReservation($db, $reservationId, 'expired');
         $reservation['status'] = 'expired';
     }
 

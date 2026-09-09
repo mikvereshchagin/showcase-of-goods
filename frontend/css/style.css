@@ -740,3 +740,55 @@ input {
     color: #ccc;
     margin: 5px 0;
 }
+
+.reservation-expired-message {
+    color: #ff6b6b;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+/* Сообщение "товар раскупили" */
+.out-of-stock-message {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.out-of-stock-message__icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.out-of-stock-message__text {
+    font-size: 18px;
+    color: #101010;
+    margin-bottom: 20px;
+}
+
+.out-of-stock-message__actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.out-of-stock-message__btn {
+    padding: 10px 20px;
+    background: #667eea;
+    border: none;
+    border-radius: 5px;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.out-of-stock-message__btn:hover {
+    background: #5a67d8;
+}
+
+.out-of-stock-message__btn--secondary {
+    background: #4a4a4a;
+}
+
+.out-of-stock-message__btn--secondary:hover {
+    background: #5a5a5a;
+}
