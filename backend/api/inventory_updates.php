@@ -12,11 +12,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../database/init.php';
+require_once __DIR__ . '/../providers/reservation_helper.php';
 
 try {
     $lastUpdate = isset($_GET['last_update']) ? (int)$_GET['last_update'] : 0;
     $timeout = 3; // Максимальное время ожидания в секундах
     $startTime = time();
+
+    // Снимаем просроченные брони
+    expireOverdueReservations($db);
 
     while (time() - $startTime < $timeout) {
         // Получаем максимальное время обновления товаров

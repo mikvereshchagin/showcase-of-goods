@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../database/init.php';
 require_once __DIR__ . '/../../providers/delivery.php';
+require_once __DIR__ . '/../../providers/reservation_helper.php';
 
 try {
     $data = json_decode(file_get_contents('php://input'), true);
@@ -23,83 +24,87 @@ try {
         exit;
     }
 
+    $eventId = $data['event_id'];
+    $orderId = $data['order_id'];
+    $status = $data['status'];
+
     // Начинаем транзакцию
     $db->beginTransaction();
 
     try {
-        // Проверка на дубликат вебхука
-        $stmt = $db->prepare("SELECT event_id FROM webhook_events WHERE event_id = ?");
-        $stmt->execute([$data['event_id']]);
-
-        if ($stmt->fetch()) {
-            $db->rollBack();
-            echo json_encode(['status' => 'already_processed', 'duplicate' => true]);
-            exit;
-        }
-
-        // Сохраняем событие
+        // Атомарно фиксируем событие. Повторный event_id просто не вставится.
         $stmt = $db->prepare("
-            INSERT INTO webhook_events (event_id, order_id, status, amount, currency)
+            INSERT OR IGNORE INTO webhook_events (event_id, order_id, status, amount, currency)
             VALUES (?, ?, ?, ?, ?)
         ");
         $stmt->execute([
-            $data['event_id'],
-            $data['order_id'],
-            $data['status'],
+            $eventId,
+            $orderId,
+            $status,
             $data['amount'] ?? null,
             $data['currency'] ?? 'RUB'
         ]);
 
-        // Обновляем статус заказа только если он created
-        $orderUpdated = false;
-        $orderData = null;
+        // Если вставки не произошло — это дубликат
+        if ($stmt->rowCount() === 0) {
+            $db->rollBack();
+            echo json_encode([
+                'status' => 'already_processed',
+                'duplicate' => true,
+                'order_updated' => false
+            ]);
+            exit;
+        }
 
-        if ($data['status'] === 'paid') {
-            // Получаем информацию о заказе
+        // Обновляем статус заказа
+        $orderUpdated = false;
+
+        if ($status === 'paid') {
+            // Получаем заказ. Если его нет — не падаем, просто фиксируем событие.
             $stmt = $db->prepare("
                 SELECT id, sku, status, reservation_id
-                FROM orders 
+                FROM orders
                 WHERE id = ?
             ");
-            $stmt->execute([$data['order_id']]);
+            $stmt->execute([$orderId]);
             $orderData = $stmt->fetch();
 
             if ($orderData && $orderData['status'] === 'created') {
                 // Проверяем бронь, если она есть
                 if ($orderData['reservation_id']) {
                     $stmt = $db->prepare("
-                        SELECT status, expires_at 
-                        FROM reservations 
+                        SELECT status, expires_at
+                        FROM reservations
                         WHERE id = ?
                     ");
                     $stmt->execute([$orderData['reservation_id']]);
                     $reservation = $stmt->fetch();
 
                     if (!$reservation || $reservation['status'] !== 'active' || strtotime($reservation['expires_at']) < time()) {
-                        // Бронь недействительна
+                        // Бронь недействительна или истекла
+                        $db->rollBack();
+
+                        // Освобождаем просроченную бронь
                         if ($reservation && $reservation['status'] === 'active') {
-                            $stmt = $db->prepare("
-                                UPDATE reservations 
-                                SET status = 'expired', released_at = datetime('now')
-                                WHERE id = ?
-                            ");
-                            $stmt->execute([$orderData['reservation_id']]);
+                            releaseReservation($db, $orderData['reservation_id'], 'expired');
                         }
 
-                        $db->rollBack();
-                        http_response_code(409);
-                        echo json_encode(['error' => 'Бронь истекла или недействительна']);
+                        echo json_encode([
+                            'status' => 'ok',
+                            'order_updated' => false,
+                            'reason' => 'reservation_invalid'
+                        ]);
                         exit;
                     }
                 }
 
-                // Обновляем статус заказа
+                // Переводим заказ в paid
                 $stmt = $db->prepare("
-                    UPDATE orders 
+                    UPDATE orders
                     SET status = 'paid', updated_at = datetime('now')
                     WHERE id = ? AND status = 'created'
                 ");
-                $stmt->execute([$data['order_id']]);
+                $stmt->execute([$orderId]);
 
                 $orderUpdated = $stmt->rowCount() > 0;
             }
@@ -108,11 +113,10 @@ try {
         // Фиксируем транзакцию
         $db->commit();
 
-        // Если заказ был обновлен, запускаем выдачу
-        if ($data['status'] === 'paid' && $orderUpdated) {
-            error_log("Starting delivery for order: " . $data['order_id']);
-            $deliveryResult = deliverOrder($db, $data['order_id']);
-            error_log("Delivery result: " . ($deliveryResult ? 'success' : 'failed'));
+        // Если заказ перешёл в paid — запускаем выдачу
+        if ($status === 'paid' && $orderUpdated) {
+            $deliveryResult = deliverOrder($db, $orderId);
+            error_log("Delivery result for $orderId: " . ($deliveryResult ? 'success' : 'failed'));
         }
 
         echo json_encode([

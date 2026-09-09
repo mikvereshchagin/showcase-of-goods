@@ -39,6 +39,7 @@ try {
             delivery_code TEXT,
             delivery_attempts INTEGER DEFAULT 0,
             reservation_id TEXT,
+            intent_id TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (sku) REFERENCES products(sku)
@@ -80,6 +81,7 @@ try {
 
         CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
         CREATE INDEX IF NOT EXISTS idx_orders_sku ON orders(sku);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_intent_id ON orders(intent_id);
         CREATE INDEX IF NOT EXISTS idx_key_pool_sku ON key_pool(sku);
         CREATE INDEX IF NOT EXISTS idx_key_pool_is_used ON key_pool(is_used);
         CREATE INDEX IF NOT EXISTS idx_webhook_events_order ON webhook_events(order_id);

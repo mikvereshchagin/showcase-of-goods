@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../database/init.php';
+require_once __DIR__ . '/../providers/reservation_helper.php';
 
 try {
     $data = json_decode(file_get_contents('php://input'), true);
@@ -24,15 +25,10 @@ try {
 
     $reservationId = $data['reservation_id'];
 
-    // Снимаем бронь
-    $stmt = $db->prepare("
-        UPDATE reservations 
-        SET status = 'released', released_at = datetime('now')
-        WHERE id = ? AND status = 'active'
-    ");
-    $stmt->execute([$reservationId]);
+    // Используем общую функцию: она и бронь снимет, и stock вернёт
+    $released = releaseReservation($db, $reservationId, 'released');
 
-    if ($stmt->rowCount() > 0) {
+    if ($released) {
         echo json_encode([
             'status' => 'ok',
             'message' => 'Бронь снята'

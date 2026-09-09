@@ -3,9 +3,8 @@ function deliverOrder($db, $orderId) {
     try {
         // Проверяем текущий статус заказа
         $stmt = $db->prepare("
-            SELECT o.id, o.sku, o.status, o.reservation_id, p.stock
+            SELECT o.id, o.sku, o.status, o.reservation_id
             FROM orders o
-            JOIN products p ON o.sku = p.sku
             WHERE o.id = ?
         ");
         $stmt->execute([$orderId]);
@@ -53,7 +52,9 @@ function deliverOrder($db, $orderId) {
             $key = $stmt->fetch();
 
             if (!$key) {
-                // Нет ключей - out_of_stock
+                // Нет ключей - out_of_stock.
+                // ВАЖНО: бронь остаётся активной, чтобы можно было восстановить выдачу
+                // после пополнения ключей (Этап 3 ТЗ).
                 $stmt = $db->prepare("
                     UPDATE orders 
                     SET status = 'out_of_stock', updated_at = datetime('now')
@@ -81,13 +82,8 @@ function deliverOrder($db, $orderId) {
                 return false;
             }
 
-            // Уменьшаем остаток товара
-            $stmt = $db->prepare("
-                UPDATE products 
-                SET stock = stock - 1, updated_at = datetime('now')
-                WHERE sku = ? AND stock > 0
-            ");
-            $stmt->execute([$order['sku']]);
+            // ВАЖНО: НЕ уменьшаем products.stock здесь.
+            // Остаток уже списан при бронировании (reserve.php).
 
             // Обновляем заказ с выданным ключом
             $stmt = $db->prepare("

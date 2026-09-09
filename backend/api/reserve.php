@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../database/init.php';
+require_once __DIR__ . '/../providers/reservation_helper.php';
 
 try {
     $data = json_decode(file_get_contents('php://input'), true);
@@ -22,6 +23,9 @@ try {
         exit;
     }
 
+    // Снимаем просроченные брони перед резервированием
+    expireOverdueReservations($db);
+
     $sku = $data['sku'];
     $reservationId = 'res_' . uniqid() . '_' . bin2hex(random_bytes(4));
     $expiresAt = date('Y-m-d H:i:s', time() + 300);
@@ -30,43 +34,40 @@ try {
     $db->beginTransaction();
 
     try {
-        // Проверяем наличие товара (без FOR UPDATE)
+        // Атомарно списываем 1 единицу остатка
         $stmt = $db->prepare("
-            SELECT stock, price, name 
-            FROM products 
+            UPDATE products
+            SET stock = stock - 1,
+                updated_at = datetime('now')
             WHERE sku = ?
+              AND stock >= 1
         ");
+        $stmt->execute([$sku]);
+
+        if ($stmt->rowCount() === 0) {
+            $db->rollBack();
+
+            $check = $db->prepare("SELECT stock FROM products WHERE sku = ?");
+            $check->execute([$sku]);
+            $product = $check->fetch();
+
+            if (!$product) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Product not found']);
+            } else {
+                http_response_code(409);
+                echo json_encode([
+                    'error' => 'out_of_stock',
+                    'message' => 'Товар только что раскупили'
+                ]);
+            }
+            exit;
+        }
+
+        // Получаем актуальную цену и имя
+        $stmt = $db->prepare("SELECT price, name FROM products WHERE sku = ?");
         $stmt->execute([$sku]);
         $product = $stmt->fetch();
-
-        if (!$product) {
-            $db->rollBack();
-            http_response_code(404);
-            echo json_encode(['error' => 'Product not found']);
-            exit;
-        }
-
-        // Проверяем, есть ли активные брони для этого товара
-        $stmt = $db->prepare("
-            SELECT COUNT(*) as active_reservations
-            FROM reservations
-            WHERE sku = ? AND status = 'active' AND expires_at > datetime('now')
-        ");
-        $stmt->execute([$sku]);
-        $activeReservations = (int)$stmt->fetchColumn();
-
-        // Доступное количество = stock - активные брони
-        $availableStock = $product['stock'] - $activeReservations;
-
-        if ($availableStock <= 0) {
-            $db->rollBack();
-            http_response_code(409);
-            echo json_encode([
-                'error' => 'out_of_stock',
-                'message' => 'Товар только что раскупили'
-            ]);
-            exit;
-        }
 
         // Создаем бронь
         $stmt = $db->prepare("
@@ -74,6 +75,11 @@ try {
             VALUES (?, ?, 'active', ?)
         ");
         $stmt->execute([$reservationId, $sku, $expiresAt]);
+
+        // Получаем новый остаток
+        $stmt = $db->prepare("SELECT stock FROM products WHERE sku = ?");
+        $stmt->execute([$sku]);
+        $newStock = (int)$stmt->fetchColumn();
 
         $db->commit();
 
@@ -85,7 +91,7 @@ try {
                 'sku' => $sku,
                 'name' => $product['name'],
                 'price' => $product['price'],
-                'available_stock' => $availableStock
+                'available_stock' => $newStock
             ],
             'message' => 'Товар забронирован на 5 минут'
         ]);

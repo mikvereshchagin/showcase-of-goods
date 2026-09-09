@@ -204,6 +204,14 @@ function openPurchaseModal(product) {
         buyButton.textContent = 'Забронировать';
         buyButton.onclick = createReservation;
     }
+    // Убираем сообщение "раскупили", если было
+    const oldMessage = document.getElementById('outOfStockMessage');
+    if (oldMessage) oldMessage.remove();
+
+    // Показываем обычные элементы
+    const productInfo = document.querySelector('.modal__product-info');
+    if (productInfo) productInfo.style.display = 'flex';
+    if (buyButton) buyButton.style.display = 'block';
 }
 
 function closePurchaseModal() {
@@ -227,6 +235,12 @@ function closePurchaseModal() {
 async function createReservation() {
     if (!selectedProduct) return;
 
+    const buyButton = document.getElementById('confirmPurchaseBtn');
+    if (buyButton) {
+        buyButton.disabled = true;
+        buyButton.textContent = 'Бронируем...';
+    }
+
     try {
         const response = await fetch('/backend/api/reserve.php', {
             method: 'POST',
@@ -240,8 +254,7 @@ async function createReservation() {
 
         if (!response.ok) {
             if (response.status === 409) {
-                alert(data.message || 'Товар только что раскупили');
-                closePurchaseModal();
+                showOutOfStockMessage(data.message || 'Товар только что раскупили');
                 loadProducts();
             } else {
                 throw new Error(data.error || 'Ошибка бронирования');
@@ -262,16 +275,86 @@ async function createReservation() {
         if (emailField) emailField.style.display = 'block';
 
         // Меняем кнопку
-        const buyButton = document.getElementById('confirmPurchaseBtn');
         if (buyButton) {
             buyButton.textContent = 'Оплатить';
             buyButton.onclick = processPayment;
+            buyButton.disabled = false;
         }
 
     } catch (error) {
         console.error('Ошибка бронирования:', error);
         alert('Ошибка при бронировании: ' + error.message);
+        if (buyButton) {
+            buyButton.disabled = false;
+            buyButton.textContent = 'Забронировать';
+        }
     }
+}
+
+// Показ сообщения "товар раскупили" в модальном окне
+function showOutOfStockMessage(message) {
+    const modalBody = document.querySelector('#purchaseModal .modal__body');
+    if (!modalBody) return;
+
+    // Скрываем обычные элементы
+    const reservationBlock = document.getElementById('reservationBlock');
+    const emailField = document.getElementById('emailField');
+    const buyButton = document.getElementById('confirmPurchaseBtn');
+    const productInfo = document.querySelector('.modal__product-info');
+
+    if (reservationBlock) reservationBlock.style.display = 'none';
+    if (emailField) emailField.style.display = 'none';
+    if (buyButton) buyButton.style.display = 'none';
+    if (productInfo) productInfo.style.display = 'none';
+
+    // Убираем старое сообщение, если было
+    const oldMessage = document.getElementById('outOfStockMessage');
+    if (oldMessage) oldMessage.remove();
+
+    const block = document.createElement('div');
+    block.id = 'outOfStockMessage';
+    block.className = 'out-of-stock-message';
+    block.innerHTML = `
+        <div class="out-of-stock-message__icon">😔</div>
+        <p class="out-of-stock-message__text">${message}</p>
+        <div class="out-of-stock-message__actions">
+            <button class="out-of-stock-message__btn" id="backToCatalogBtn">К каталогу</button>
+            <button class="out-of-stock-message__btn out-of-stock-message__btn--secondary" id="closeOutOfStockBtn">Закрыть</button>
+        </div>
+    `;
+
+    modalBody.appendChild(block);
+
+    document.getElementById('backToCatalogBtn').addEventListener('click', () => {
+        closePurchaseModal();
+    });
+
+    document.getElementById('closeOutOfStockBtn').addEventListener('click', () => {
+        closePurchaseModal();
+    });
+}
+
+// Парсинг даты из формата SQLite 'YYYY-MM-DD HH:MM:SS'
+function parseDateTime(dateTimeStr) {
+    if (!dateTimeStr) return new Date();
+
+    // Если строка уже содержит 'T' — это ISO, используем стандартный парсер
+    if (dateTimeStr.includes('T')) {
+        return new Date(dateTimeStr);
+    }
+
+    const parts = dateTimeStr.split(' ');
+    const datePart = parts[0].split('-');
+    const timePart = parts.length > 1 ? parts[1].split(':') : [0, 0, 0];
+
+    return new Date(
+        parseInt(datePart[0]),
+        parseInt(datePart[1]) - 1,
+        parseInt(datePart[2]),
+        parseInt(timePart[0]),
+        parseInt(timePart[1]),
+        parseInt(timePart[2] || 0)
+    );
 }
 
 // Показ таймера брони
@@ -281,7 +364,7 @@ function showReservationTimer(reservation) {
     }
 
     const timerDisplay = document.getElementById('timerDisplay');
-    const expiresAt = new Date(reservation.expires_at).getTime();
+    const expiresAt = parseDateTime(reservation.expires_at).getTime();
 
     reservationTimer = setInterval(() => {
         const now = Date.now();
@@ -295,6 +378,7 @@ function showReservationTimer(reservation) {
 
             const buyButton = document.getElementById('confirmPurchaseBtn');
             if (buyButton) {
+                buyButton.disabled = false;
                 buyButton.textContent = 'Забронировать';
                 buyButton.onclick = createReservation;
             }
@@ -302,7 +386,17 @@ function showReservationTimer(reservation) {
             const emailField = document.getElementById('emailField');
             if (emailField) emailField.style.display = 'none';
 
-            alert('Время брони истекло. Товар снова доступен.');
+            // Показываем статусное сообщение вместо alert
+            const timerBlock = document.getElementById('reservationTimer');
+            if (timerBlock) {
+                const message = document.createElement('p');
+                message.className = 'reservation-expired-message';
+                message.textContent = 'Бронь истекла. Товар снова доступен.';
+                timerBlock.appendChild(message);
+            }
+
+            // Обновляем каталог, чтобы вернуть товар в UI
+            loadProducts();
             return;
         }
 
@@ -347,6 +441,12 @@ async function processPayment() {
         return;
     }
 
+    const buyButton = document.getElementById('confirmPurchaseBtn');
+    if (buyButton) {
+        buyButton.disabled = true;
+        buyButton.textContent = 'Оплачиваем...';
+    }
+
     try {
         // Проверяем бронь
         const checkResponse = await fetch(`/backend/api/check_reservation.php?reservation_id=${currentReservation.reservation_id}`);
@@ -355,8 +455,18 @@ async function processPayment() {
         if (!checkData.reservation || !checkData.reservation.is_active) {
             alert('Бронь истекла. Пожалуйста, забронируйте товар заново.');
             releaseReservation();
+            if (buyButton) {
+                buyButton.disabled = false;
+                buyButton.textContent = 'Забронировать';
+                buyButton.onclick = createReservation;
+            }
+            const emailField = document.getElementById('emailField');
+            if (emailField) emailField.style.display = 'none';
             return;
         }
+
+        // Генерируем intent_id один раз на попытку оплаты
+        const intentId = 'intent_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
         // Создание заказа с бронью
         const createResponse = await fetch('/backend/api/create_order.php', {
@@ -364,9 +474,9 @@ async function processPayment() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 sku: selectedProduct.sku,
-                amount: selectedProduct.price,
                 email: email,
-                reservation_id: currentReservation.reservation_id
+                reservation_id: currentReservation.reservation_id,
+                intent_id: intentId
             })
         });
 
@@ -378,13 +488,17 @@ async function processPayment() {
 
         const orderId = orderData.order_id;
 
-        // Эмуляция оплаты
+        // Сохраняем order_id для восстановления после F5
+        try {
+            localStorage.setItem('last_order_id', orderId);
+        } catch (e) {}
+
+        // Эмуляция оплаты. amount не шлём — сервер сам знает цену.
         const webhookData = {
             event_id: 'evt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
             order_id: orderId,
             status: 'paid',
-            amount: selectedProduct.price,
-            currency: selectedProduct.currency || 'RUB',
+            currency: orderData.currency || 'RUB',
             created_at: new Date().toISOString()
         };
 
@@ -394,9 +508,10 @@ async function processPayment() {
             body: JSON.stringify(webhookData)
         });
 
+        const paymentData = await paymentResponse.json();
+
         if (!paymentResponse.ok) {
-            const errorData = await paymentResponse.json();
-            throw new Error(errorData.error || 'Ошибка обработки платежа');
+            throw new Error(paymentData.error || 'Ошибка обработки платежа');
         }
 
         // Очищаем таймер
@@ -411,6 +526,10 @@ async function processPayment() {
     } catch (error) {
         console.error('Ошибка при покупке:', error);
         alert('Ошибка при оформлении заказа: ' + error.message);
+        if (buyButton) {
+            buyButton.disabled = false;
+            buyButton.textContent = 'Оплатить';
+        }
     }
 }
 
@@ -476,11 +595,31 @@ function closeStatusModal() {
     if (modal) modal.classList.remove('active');
 }
 
+// Восстановление статуса заказа после F5/обрыва
+async function restoreLastOrder() {
+    // 1. Проверяем URL: ?order=ord_xxx
+    const urlParams = new URLSearchParams(window.location.search);
+    let orderId = urlParams.get('order') || urlParams.get('order_id');
+
+    // 2. Если нет в URL — берём из localStorage
+    if (!orderId) {
+        try {
+            orderId = localStorage.getItem('last_order_id');
+        } catch (e) {}
+    }
+
+    if (!orderId) return;
+
+    // Показываем статус заказа
+    await checkOrderStatus(orderId);
+}
+
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
     initCarousel();
     loadProducts();
     startLongPolling();
+    restoreLastOrder();
 
     window.onclick = function(event) {
         if (event.target.classList.contains('modal')) {
