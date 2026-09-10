@@ -28,7 +28,6 @@ php backend/database/seed.php
 ```
 4. Запустите сервер:
 ```bash
-# Основной сервер (API + фронтенд)
 php -S localhost:8000 -t .
 ```
 5. Откройте фронтенд:
@@ -40,33 +39,127 @@ http://localhost:8000/frontend/index.html
 ```
 showcase-of-goods/
 ├── backend/
-│   ├── api/              # REST API эндпоинты
-│   │   ├── create_order.php
-│   │   ├── order_status.php
-│   │   └── webhook/
-│   │       └── payment.php
-│   ├── database/         # SQLite база и миграции
-│   │   ├── init.php      # Инициализация БД
-│   │   ├── seed.php      # Заполнение тестовыми данными
-│   │   └── database.sqlite # Файл базы данных
-│   └── providers/        # Логика выдачи
-│       └── delivery.php  # Выдача ключей
+│   ├── api/                  # REST API эндпоинты
+│   │   ├── products.php      # Список товаров
+│   │   ├── reserve.php       # Бронирование товара
+│   │   ├── check_reservation.php  # Проверка брони
+│   │   ├── release_reservation.php # Снятие брони
+│   │   ├── inventory_updates.php   # Long polling обновлений
+│   │   ├── create_order.php  # Создание заказа
+│   │   ├── order_status.php  # Статус заказа
+│   │   ├── webhook/
+│   │   │   └── payment.php   # Вебхук оплаты
+│   │   └── cron/
+│   │       └── expire.php    # Снятие просроченных броней
+│   ├── database/             # SQLite база и миграции
+│   │   ├── init.php          # Инициализация БД
+│   │   ├── seed.php          # Заполнение тестовыми данными
+│   │   └── database.sqlite   # Файл базы данных
+│   └── providers/            # Логика
+│       ├── delivery.php      # Выдача ключей
+│       └── reservation_helper.php # Управление бронью
 ├── frontend/
-│   ├── css/              # Стили
+│   ├── css/                  # Стили
 │   │   └── style.css
-│   ├── js/               # JavaScript
+│   ├── js/                   # JavaScript
 │   │   └── main.js
-│   ├── images/           # Изображения (опционально)
-│   └── index.html        # Главная страница
-├── tests/                # Тесты
-│   ├── test_parallel_webhooks.php
-│   ├── test_duplicate_webhook.php
-│   ├── test_double_click.php
+│   ├── images/               # Изображения
+│   └── index.html            # Главная страница
+├── tests/                    # Тесты
+│   ├── test_parallel_reserve.php
+│   ├── test_reservation_expire.php
+│   ├── test_duplicate_intent.php
+│   ├── test_payment_parallel.php
 │   └── run_all_tests.sh
 └── README.md
 ```
 
 # 🔄 API Endpoints
+
+**Список товаров**
+
+```
+GET /backend/api/products.php
+
+Response:
+{
+  "status": "ok",
+  "products": [
+    {
+      "sku": "KEY-CS2-PRIME",
+      "name": "CS2 Prime Status ключ",
+      "type": "key",
+      "price": 1290,
+      "old_price": 1500,
+      "currency": "RUB",
+      "stock": 5
+    }
+  ],
+  "timestamp": 1700000000
+}
+```
+
+**Бронирование товара**
+
+```
+POST /backend/api/reserve.php
+Content-Type: application/json
+
+Body:
+{
+  "sku": "KEY-CS2-PRIME"
+}
+
+Response (успех):
+{
+  "status": "ok",
+  "reservation_id": "res_xxx",
+  "expires_at": "2026-09-09 20:25:39",
+  "product": {
+    "sku": "KEY-CS2-PRIME",
+    "name": "CS2 Prime Status ключ",
+    "price": 1290,
+    "available_stock": 4
+  }
+}
+
+Response (нет в наличии):
+HTTP 409
+{
+  "error": "out_of_stock",
+  "message": "Товар только что раскупили"
+}
+```
+
+**Проверка брони**
+
+```
+GET /backend/api/check_reservation.php?reservation_id=res_xxx
+
+Response:
+{
+  "status": "ok",
+  "reservation": {
+    "id": "res_xxx",
+    "status": "active",
+    "is_active": true,
+    "expires_at": "2026-09-09 20:25:39",
+    "time_remaining": 280
+  }
+}
+```
+
+**Снятие брони**
+
+```
+POST /backend/api/release_reservation.php
+Content-Type: application/json
+
+Body:
+{
+  "reservation_id": "res_xxx"
+}
+```
 
 **Создание заказа**
 
@@ -74,18 +167,21 @@ showcase-of-goods/
 POST /backend/api/create_order.php
 Content-Type: application/json
 
-Body: 
+Body:
 {
-  "sku": "STEAM-TOPUP-500",
-  "amount": 500,
+  "sku": "KEY-CS2-PRIME",
+  "reservation_id": "res_xxx",
+  "intent_id": "intent_xxx",
   "email": "user@example.com"
 }
 
-Response: 
+Response:
 {
   "order_id": "ord_xxx",
   "status": "created",
-  "message": "Order created successfully"
+  "reservation_id": "res_xxx",
+  "amount": 1290,
+  "currency": "RUB"
 }
 ```
 
@@ -95,14 +191,12 @@ Response:
 POST /backend/api/webhook/payment.php
 Content-Type: application/json
 
-Body: 
+Body:
 {
   "event_id": "evt_unique",
   "order_id": "ord_xxx",
   "status": "paid",
-  "amount": 500,
-  "currency": "RUB",
-  "created_at": "2025-01-01T12:00:00Z"
+  "currency": "RUB"
 }
 
 Response (успех):
@@ -114,7 +208,8 @@ Response (успех):
 Response (дубликат):
 {
   "status": "already_processed",
-  "duplicate": true
+  "duplicate": true,
+  "order_updated": false
 }
 ```
 
@@ -125,18 +220,62 @@ GET /backend/api/order_status.php?order_id=ord_xxx
 
 Response:
 {
-  "id": "ord_xxx",
-  "sku": "STEAM-TOPUP-500",
-  "status": "delivered",
-  "amount": 500,
-  "currency": "RUB",
-  "delivery_code": "LFXC-TNCS-BPCD",
-  "created_at": "2025-01-01 12:00:00",
-  "updated_at": "2025-01-01 12:00:01"
+"id": "ord_xxx",
+"sku": "KEY-CS2-PRIME",
+"status": "delivered",
+"amount": 1290,
+"currency": "RUB",
+"delivery_code": "LFXC-TNCS-BPCD",
+"created_at": "2026-09-09 20:30:00",
+"updated_at": "2026-09-09 20:30:01"
 }
 ```
 
-# 🧪 Тестирование гонок
+**Снятие просроченных броней**
+
+```
+GET /backend/api/cron/expire.php
+
+Response:
+{
+  "status": "ok",
+  "expired_count": 1
+}
+```
+
+**Long polling обновлений**
+
+```
+GET /backend/api/inventory_updates.php?last_update=1700000000
+
+Response (есть обновления):
+{
+"status": "ok",
+"products": [
+{
+"sku": "KEY-CS2-PRIME",
+"name": "CS2 Prime Status ключ",
+"type": "key",
+"price": 1290,
+"old_price": 1500,
+"currency": "RUB",
+"stock": 5
+}
+],
+"timestamp": 1700000005,
+"has_updates": true
+}
+
+Response (нет обновлений):
+{
+"status": "ok",
+"products": [],
+"timestamp": 1700000005,
+"has_updates": false
+}
+```
+
+# 🧪 Тестирование
 
 **Запуск всех тестов:**
 ```bash
@@ -144,30 +283,56 @@ Response:
 ```
 **Или запуск отдельных тестов:**
 ```bash
-# Тест на 50 параллельных вебхуков
-php tests/test_parallel_webhooks.php
+# Тест параллельного бронирования (50 запросов на 1 единицу)
+php tests/test_parallel_reserve.php
 
-# Тест на повторный вебхук
-php tests/test_duplicate_webhook.php
+# Тест истечения брони
+php tests/test_reservation_expire.php
 
-# Тест на двойной клик
-php tests/test_double_click.php
+# Тест дубликата intent_id
+php tests/test_duplicate_intent.php
+
+# Тест параллельных вебхуков (50 запросов на 1 заказ)
+php tests/test_payment_parallel.php
 ```
 **Что проверяют тесты:**
-Параллельные вебхуки - 50 одновременных запросов, ключ должен выдаться 1 раз
 
-Повторный вебхук - тот же event_id, должен вернуть "already_processed"
+Параллельное бронирование — 50 одновременных запросов на товар с stock=1, только 1 победит
 
-Двойной клик - два вебхука на один заказ, только 1 ключ
+Истечение брони — просроченная бронь возвращает товар в продажу
 
-# 🔐 Механизм однократной выдачи
+Дубликат intent_id — повторный запрос создания заказа не создаёт дубль
 
-Однократная выдача гарантируется через:
-1. Атомарные SQL-транзакции - ключ помечается как использованный в рамках одной транзакции с блокировкой записи 
-2. Уникальные индексы - на ключи (key_code UNIQUE) и события вебхуков (event_id PRIMARY KEY)
-3. Идемпотентные обработчики - повторные запросы с тем же event_id возвращают already_processed 
-4. Статусная модель - заказ может перейти в финальное состояние только один раз 
-5. Проверка статуса - выдача происходит только из статуса paid, повторная выдача невозможна
+Параллельные вебхуки — 50 одинаковых вебхуков дают ровно 1 ключ
+
+# 🔐 Механизм защиты от гонок
+
+**Атомарное бронирование**
+
+Бронь = UPDATE products SET stock = stock - 1 WHERE sku = ? AND stock >= 1.
+Кто первый выполнил UPDATE — тот и победил. Параллельные запросы блокируются на уровне SQLite.
+
+**Идемпотентность**
+
+webhook_events.event_id — PRIMARY KEY, повторный вебхук возвращает already_processed
+
+orders.intent_id — UNIQUE, повторное создание заказа возвращает существующий
+
+Кнопки блокируются на время запроса (защита от двойного клика)
+
+**Бронь с таймером**
+
+Бронь активна 5 минут
+
+По истечении — товар возвращается в продажу
+
+Sweep-механизм: cron/expire.php + ленивый вызов при бронировании
+
+**Восстановление после F5**
+
+order_id сохраняется в localStorage
+
+При загрузке страницы статус заказа восстанавливается
 
 **Статусы заказов**
 
@@ -183,13 +348,13 @@ php tests/test_double_click.php
 
 `out_of_stock` - оплачено, но кода нет в наличии (восстановимый)
 
-`delivery_failed`- оба поставщика не смогли выдать (восстановимый)
+`delivery_failed` - оба поставщика не смогли выдать (восстановимый)
 
 # 🔄 Жизненный цикл заказа
 
 ```
 Основной путь:
-created → paid → delivering → delivered
+бронь → created → paid → delivering → delivered
 
 Ветки сбоев:
 created → payment_failed
@@ -209,7 +374,11 @@ WAL режим для лучшей конкурентности
 
 # Таблицы
 
+`products` - товары (цена, остаток)
+
 `orders` - заказы
+
+`reservations` - брони
 
 `webhook_events` - события вебхуков (идемпотентность)
 
@@ -221,6 +390,6 @@ CORS заголовки для API
 
 Защита от SQL-инъекций через PDO prepared statements
 
-Атомарные операции выдачи ключей
+Серверная цена (клиент не может подменить сумму)
 
 Валидация входных данных
